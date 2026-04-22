@@ -126,7 +126,8 @@ namespace Educational_Platform.Services
             {
                 StudentName = g.Student.Name,
                 ExamTitle = g.Exam.Title,
-                Score = g.Score
+                Score = g.Score,
+                FinalScoreOfExam = g.Exam.TotalMarks
             }).ToList();
         }
 

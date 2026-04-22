@@ -4,6 +4,9 @@ using Educational_Platform.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 
 namespace Educational_Platform.Controllers
 {
@@ -146,6 +149,52 @@ namespace Educational_Platform.Controllers
             response.Messsage = "The data returned successfully";
             response.Data = grades;
             return Ok(response);
+        }
+        [HttpGet("/StudentGrades/pdf/{id:int}")]
+        [Authorize]
+        public IActionResult StudentGradesPDf(int id)
+        {
+            var grades = studentServices.StudentGrades(id);
+            QuestPDF.Settings.License = LicenseType.Community;
+            var pdfstream = new MemoryStream();
+
+            Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Header().Padding(10).PaddingBottom(10).AlignCenter().Text("Student Grades Report").FontSize(20).FontColor(Colors.Blue.Medium).Bold();
+                    page.Content().Padding(15).Table(table =>
+                    {
+                        table.ColumnsDefinition(col =>
+                        {
+                            col.RelativeColumn();
+                            col.RelativeColumn();
+                            col.ConstantColumn(70);
+                            col.ConstantColumn(80);
+                        });
+                        table.Header(header =>
+                        {
+                            header.Cell().Background(Colors.Blue.Lighten1).Padding(5).Text("Student Name").Bold();
+                            header.Cell().Background(Colors.Blue.Lighten1).Padding(5).Text("Course").Bold();
+                            header.Cell().Background(Colors.Blue.Lighten1).Padding(5).Text("Grade").Bold();
+                            header.Cell().Background(Colors.Blue.Lighten1).Padding(5).Text("Full Mark").Bold();
+                        });
+                        int index = 0;
+                        foreach (var item in grades)
+                        {
+                            var color = index % 2 == 0 ? Colors.Grey.Lighten2 : Colors.White;
+                            table.Cell().Background(color).Padding(5).Text(item.StudentName);
+                            table.Cell().Background(color).Padding(5).Text(item.ExamTitle);
+                            table.Cell().Background(color).Padding(5).AlignRight().Text(item.Score.ToString());
+                            table.Cell().Background(color).Padding(5).AlignRight().Text(item.FinalScoreOfExam.ToString());
+                            index++;
+                        }
+                    });
+                });
+            }).GeneratePdf(pdfstream);
+
+            pdfstream.Position = 0;
+            return File(pdfstream, "application/pdf", "Student_Grades_Report.pdf");
         }
     }
 }

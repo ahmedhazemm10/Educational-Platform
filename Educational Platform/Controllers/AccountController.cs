@@ -15,11 +15,15 @@ namespace Educational_Platform.Controllers
     public class AccountController : ControllerBase
     {
         private readonly UserManager<User> _userManager;
+        private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IConfiguration _configuration;
 
-        public AccountController(UserManager<User> userManager, IConfiguration configuration)
+        public AccountController(UserManager<User> userManager,
+                                 RoleManager<IdentityRole> roleManager,
+                                 IConfiguration configuration)
         {
             _userManager = userManager;
+            _roleManager = roleManager;
             _configuration = configuration;
         }
 
@@ -38,7 +42,22 @@ namespace Educational_Platform.Controllers
 
             if (result.Succeeded)
             {
-                return Ok(new { Message = "User Registered Successfully" });
+                if (!await _roleManager.RoleExistsAsync("Admin"))
+                    await _roleManager.CreateAsync(new IdentityRole("Admin"));
+
+                if (!await _roleManager.RoleExistsAsync("User"))
+                    await _roleManager.CreateAsync(new IdentityRole("User"));
+
+                if (registerDTO.Email == "admin@ecommerce.com")
+                {
+                    await _userManager.AddToRoleAsync(user, "Admin");
+                    return Ok(new { Message = "Admin Registered Successfully" });
+                }
+                else
+                {
+                    await _userManager.AddToRoleAsync(user, "User");
+                    return Ok(new { Message = "User Registered Successfully" });
+                }
             }
 
             return BadRequest(result.Errors);
@@ -57,6 +76,12 @@ namespace Educational_Platform.Controllers
                     new Claim(ClaimTypes.NameIdentifier, user.Id),
                     new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 };
+
+                var userRoles = await _userManager.GetRolesAsync(user);
+                foreach (var role in userRoles)
+                {
+                    authClaims.Add(new Claim(ClaimTypes.Role, role));
+                }
 
                 var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JWT:Key"]));
 
